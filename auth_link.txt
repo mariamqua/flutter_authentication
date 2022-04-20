@@ -1,0 +1,1 @@
+https://flutter-authentification-82c71.firebaseapp.com/__/auth/handler

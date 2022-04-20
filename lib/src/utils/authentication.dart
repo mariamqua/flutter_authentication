@@ -1,13 +1,38 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../screens/user_info_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class Authentication {
-  // initialize firebase
-  static Future<FirebaseApp> initializeFirebase() async {
+  static SnackBar customSnackBar({required String content}) {
+    return SnackBar(
+      backgroundColor: Colors.black,
+      content: Text(
+        content,
+        style: const TextStyle(color: Colors.redAccent, letterSpacing: 0.5),
+      ),
+    );
+  }
+
+  static Future<FirebaseApp> initializeFirebase({
+    required BuildContext context,
+  }) async {
     FirebaseApp firebaseApp = await Firebase.initializeApp();
+
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => UserInfoScreen(
+            user: user,
+          ),
+        ),
+      );
+    }
+
     return firebaseApp;
   }
 
@@ -17,28 +42,37 @@ class Authentication {
 
     if (kIsWeb) {
       GoogleAuthProvider authProvider = GoogleAuthProvider();
-      // google sign In
+
+      try {
+        final UserCredential userCredential =
+            await auth.signInWithPopup(authProvider);
+
+        user = userCredential.user;
+      } catch (e) {
+        debugPrint("$e");
+      }
+    } else {
       final GoogleSignIn googleSignIn = GoogleSignIn();
-      // google sign In
+
       final GoogleSignInAccount? googleSignInAccount =
           await googleSignIn.signIn();
-      // test if all data
+
       if (googleSignInAccount != null) {
-        final GoogleSignInAuthentication signInAuthentication =
+        final GoogleSignInAuthentication googleSignInAuthentication =
             await googleSignInAccount.authentication;
 
-        final AuthCredential authCredential = GoogleAuthProvider.credential(
-            accessToken: signInAuthentication.accessToken,
-            idToken: signInAuthentication.idToken);
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleSignInAuthentication.accessToken,
+          idToken: googleSignInAuthentication.idToken,
+        );
 
         try {
           final UserCredential userCredential =
-              await auth.signInWithCredential(authCredential);
+              await auth.signInWithCredential(credential);
+
           user = userCredential.user;
         } on FirebaseAuthException catch (e) {
-          debugPrint('error : $e');
           if (e.code == 'account-exists-with-different-credential') {
-            // handle error
             ScaffoldMessenger.of(context).showSnackBar(
               Authentication.customSnackBar(
                 content:
@@ -54,7 +88,6 @@ class Authentication {
             );
           }
         } catch (e) {
-          // handle error
           ScaffoldMessenger.of(context).showSnackBar(
             Authentication.customSnackBar(
               content: 'Error occurred using Google Sign In. Try again.',
@@ -63,6 +96,7 @@ class Authentication {
         }
       }
     }
+
     return user;
   }
 
@@ -76,19 +110,10 @@ class Authentication {
       await FirebaseAuth.instance.signOut();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        Authentication.customSnackBar(content: 'Error sign out'),
+        Authentication.customSnackBar(
+          content: 'Error signing out. Try again.',
+        ),
       );
     }
-  }
-
- 
-  static SnackBar customSnackBar({required String content}) {
-    return SnackBar(
-      backgroundColor: Colors.black,
-      content: Text(
-        content,
-        style: const TextStyle(color: Colors.redAccent, letterSpacing: 0.5),
-      ),
-    );
   }
 }
